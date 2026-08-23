@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TriageSetu | Safety-first triage</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand"><span class="brand-mark">✦</span><span>Triage<span>Setu</span></span></div>
+        <div class="facility"><span class="pulse"></span> District Hospital ED<br><small>Prototype · India</small></div>
+        <nav>
+          <button class="nav active" data-view="queue">▦ <span>Live queue</span><b id="queueCount">0</b></button>
+          <button class="nav" data-view="intake">＋ <span>New intake</span></button>
+          <button class="nav" data-view="audit">◫ <span>Audit trail</span></button>
+        </nav>
+        <div class="side-bottom">
+          <div class="surge-card"><div><span class="status-dot"></span> Surge protocol</div><small>Escalates borderline cases</small><button id="surgeToggle">Enable 3× surge</button></div>
+          <div class="privacy">⌁ Pseudonymous clinical workspace<br><small>DPDP-ready design</small></div>
+        </div>
+      </aside>
+
+      <main>
+        <header><div><p class="eyebrow">EMERGENCY DEPARTMENT · LIVE PROTOTYPE</p><h1 id="viewTitle">Live priority queue</h1><p class="subhead" id="viewSubtitle">Safety-first recommendations, awaiting clinician confirmation.</p></div><div class="header-actions"><button class="ghost" id="fastForward">↻ Advance 30 min</button><span id="clock"></span></div></header>
+
+        <section id="queueView" class="view active">
+          <div class="metrics" id="metrics"></div>
+          <div class="queue-toolbar"><div class="filter-set"><button class="filter active" data-filter="all">All</button><button class="filter" data-filter="red">Urgent</button><button class="filter" data-filter="amber">Watch</button><button class="filter" data-filter="review">Needs review</button></div><div class="legend"><span><i class="dot red"></i> ESI 1–2</span><span><i class="dot amber"></i> ESI 3</span><span><i class="dot green"></i> ESI 4–5</span></div></div>
+          <div class="queue-table-wrap"><table><thead><tr><th>Patient</th><th>Presentation</th><th>Clinical signal</th><th>Recommendation</th><th>Confidence</th><th>Waiting</th><th></th></tr></thead><tbody id="queueBody"></tbody></table></div>
+          <p class="footnote">Recommendations assist licensed clinicians; they do not make clinical decisions. Rules can only escalate, never downgrade.</p>
+        </section>
+
+        <section id="intakeView" class="view">
+          <div class="form-layout"><form id="intakeForm" class="intake-card"><div class="section-label">SIMULATED CAPTURE LAYER</div><h2>Register a new arrival</h2><p>Fields mirror the structured signal sent to the scoring engine.</p><div class="form-grid"><label>Display name<input name="name" required placeholder="e.g. Priya N." /></label><label>Age<input name="age" type="number" min="0" max="120" required placeholder="Years" /></label><label>Heart rate <small>bpm</small><input name="hr" type="number" required placeholder="72" /></label><label>Respiratory rate <small>/min</small><input name="rr" type="number" required placeholder="16" /></label><label>SpO₂ <small>%</small><input name="spo2" type="number" min="50" max="100" required placeholder="98" /></label><label>Temperature <small>°C</small><input name="temp" type="number" step="0.1" required placeholder="37.0" /></label><label>Systolic BP <small>mmHg</small><input name="sbp" type="number" required placeholder="118" /></label><label>Alertness<select name="avpu"><option value="alert">Alert</option><option value="voice">Responds to voice</option><option value="pain">Responds to pain</option><option value="unresponsive">Unresponsive</option></select></label></div><label class="wide">Chief complaint<textarea name="complaint" required placeholder="Describe the patient complaint…"></textarea></label><div class="check-row"><label><input name="history" type="checkbox" /> Prior history available</label><label><input name="bleeding" type="checkbox" /> Active severe bleeding</label><label><input name="breakGlass" type="checkbox" /> Break-glass access</label></div><button class="primary" type="submit">Score and add to queue →</button></form><aside class="scoring-guide"><span class="chip">SAFETY BOUNDARY</span><h3>How a recommendation is made</h3><ol><li>Age-normalize every vital.</li><li>Check transparent red-flag rules.</li><li>Estimate a risk tier from structured signals.</li><li>Escalate one level on uncertainty or disagreement.</li></ol><p>The language layer explains the decision; it never chooses the tier.</p></aside></div>
+        </section>
+
+        <section id="auditView" class="view"><div class="audit-top"><div><span class="chip">APPEND-ONLY</span><h2>Clinical accountability log</h2><p>Every override and safety event is timestamped against a pseudonymous patient record.</p></div><button class="ghost" id="exportAudit">↓ Export log</button></div><div id="auditLog" class="audit-log"></div></section>
+      </main>
+    </div>
+    <div id="patientModal" class="modal-backdrop hidden"><div class="modal" id="modalContent"></div></div>
+    <script src="app.js"></script>
+  </body>
+</html>
