@@ -1,410 +1,300 @@
 # TriageSetu
 
-Safety-first AI triage for emergency care. A hybrid rule and ML scoring engine that helps emergency department staff prioritize and route patients, with explicit uncertainty, clinician override, and an append-only audit trail.
+Safety-first emergency-department triage prototype. TriageSetu combines transparent rule-based safety nets with a model-derived risk tier, explicit uncertainty, clinician override, deterioration reassessment, and an append-only audit trail.
 
 Built for the PatientTriage.ai track of the Accenture Innovation Challenge, Round 2.
 
-> This is a clinical workflow prototype, not a diagnostic device or medical advice. The scoring engine runs entirely in-process. No external model API calls are made.
+> **Clinical safety boundary:** TriageSetu is a workflow prototype, not a diagnostic device or medical advice. Recommendations are advisory and require clinician review. Demo patient and ABHA records are synthetic.
 
----
+## What is implemented
 
-## Implementation Approach
+- Age-aware normalization for pediatric, adult, and geriatric patients.
+- Hybrid rule + model-derived triage scoring with conservative fusion.
+- Explicit confidence and uncertainty escalation.
+- Red-flag safety rules for AVPU, bleeding, oxygenation, neurological symptoms, chest symptoms, and age-specific vital deviations.
+- Live intake scoring before submission.
+- Queue prioritization, surge mode, and wait-time deterioration reassessment.
+- Clinician confirmation/override with rationale and audit logging.
+- Clinical notes and patient-detail workflow.
+- Bed board, staff roster, analytics, audit trail, and settings views.
+- **ABHA history workflow:** consent-gated ABHA lookup, compact history display, masked ABHA storage, and audit logging.
 
-The prototype addresses seven real-world complexities from the PatientTriage.ai brief.
+## Architecture
 
-### Age-aware normalization
-
-Vital sign thresholds differ across pediatric (under 18), adult (18 to 64), and geriatric (65 and over) populations. A fever of 38.5 degrees C carries different urgency in a 3-year-old versus a 75-year-old. The engine age-bands every vital before scoring.
-
-### Hybrid rule and ML scoring
-
-Rather than trusting a single black-box model, TriageSetu runs two scorers in parallel:
-
-- A transparent rule engine with hard safety nets for AVPU, active bleeding, SpO2 floors, chest symptoms, and age-specific thresholds.
-- A model-derived tier estimate. We trained a `HistGradientBoostingClassifier` (scikit-learn) on 4,000 synthetic patients built so the ESI label is not simply a rearrangement of the input features, see `/model/generate_data.py`. Full training code, the synthetic dataset, the saved model, and evaluation metrics are in `/model`. Because the app runtime is Node, not Python, we don't call the model live; `modelTier()` in `src/lib/triage.ts` is a closed-form distillation of what the trained model learned, reweighted to match its real permutation feature importance (SpO2 deviation alone carried roughly 62% of the predictive weight across the five vitals). This is documented in the function's comment and reproducible from `/model`.
-
-The two tiers are fused with `Math.min(ruleTier, mlTier)`. The more conservative tier always wins.
-
-**Why fuse instead of trusting the model alone?** We tested this on held-out data rather than assuming it. The ML model by itself under-triages (assigns a less urgent tier than the true one) 22.5% of tier 1–2 patients. The rule engine alone under-triages 16.2%. Fused together, the under-triage rate drops to 10.3%, at the cost of overall accuracy falling from 69.5% (ML alone) to 45.9% (fused), because the fused system is deliberately biased toward escalating borderline cases rather than optimizing for average correctness. That trade is the point: the brief asks for a system tuned to bias toward escalation under uncertainty rather than average accuracy, and this is the measured effect of that tuning, not just an assertion of it. See `/model/validate_fusion.py` to reproduce.
-
-### Explicit uncertainty fusion
-
-Confidence is not just model probability. It is a composite of margin (distance from threshold boundary), completeness (how many vitals are recorded), agreement (do rule and ML agree), and history availability (does the patient have prior records).
-
-When confidence is low, the rule and ML disagree, or history is missing, the system escalates one tier and flags it for clinician review.
-
-### Asymmetric costs of triage error
-
-Under-triage (missing a critical case) is categorically worse than over-triage (over-prioritizing a minor one). The escalation policy reflects this. Uncertainty always pushes toward higher acuity, never lower.
-
-### Surge protocol
-
-During mass-casualty events or 3x patient volume, clinicians can toggle surge mode. Borderline cases (confidence below 82 or ML tier 3 or below) automatically escalate one level. The entire queue is rescored against the new policy on toggle.
-
-### Deterioration reassessment
-
-Patients waiting beyond their tier's safety window are auto-escalated.
-
-| Tier | Safety window |
-|------|---------------|
-| ESI 1 to 2 (Resuscitation / Emergent) | 15 minutes |
-| ESI 3 (Urgent) | 30 minutes |
-| ESI 4 to 5 (Less / Non-urgent) | 90 minutes |
-
-The Advance clock feature simulates time passing. Every patient is rescored against the new wait time.
-
-### Clinical accountability and DPDP compliance
-
-Every recommendation, override, surge toggle, and time advance is written to an append-only audit ledger with timestamp, clinician ID, role, and rationale. Patient data is pseudonymous by default. Bulk exports redact raw complaints unless break-glass was exercised. The Settings page supports DPDP (India), HIPAA (US), GDPR (EU), and PDPA (Singapore) jurisdictions.
-
----
-
-## Solution Architecture
-
-### High-level architecture
-
-```mermaid
-flowchart TB
-    subgraph Browser["Browser"]
-        Hero["3D Newspaper Hero"]
-        Dashboard["Dashboard SPA (7 views)"]
-    end
-
-    subgraph NextJS["Next.js 16 App Router"]
-        API["REST API (17 routes)"]
-        Service["Service Layer"]
-        Scoring["Scoring Engine"]
-    end
-
-    subgraph Data["Data Layer"]
-        Prisma["Prisma ORM"]
-        SQLite["SQLite (/tmp on Vercel)"]
-    end
-
-    Hero --> Dashboard
-    Dashboard --> API
-    API --> Service
-    Service --> Scoring
-    Service --> Prisma
-    Prisma --> SQLite
-
-    style Browser fill:#e0f2fe,stroke:#0284c7,color:#000
-    style NextJS fill:#f3e8ff,stroke:#7c3aed,color:#000
-    style Data fill:#dcfce7,stroke:#16a34a,color:#000
+```text
+Browser / Next.js UI
+        |
+        v
+Next.js Route Handlers
+        |
+        +---- Triage scoring engine
+        |
+        +---- ABDM/ABHA adapter ----> registered HIU/gateway (live mode)
+        |
+        v
+Prisma + SQLite
 ```
 
-The application is a single-page Next.js app. On first load, users see a 3D newspaper-style hero landing page. Clicking Enter dashboard transitions to the main workspace, which contains seven views: Live Queue, New Intake, Analytics, Bed Board, Staff Roster, Audit Trail, and Settings.
+The scoring engine runs in-process. The runtime does not call an external ML API; `src/lib/triage.ts` contains the closed-form model-tier distillation used by the prototype.
 
-All 17 REST endpoints live under `/api/` and are implemented as Next.js Route Handlers. Each endpoint that reads data calls `ensureSeed()` first, which idempotently creates the schema and seeds 20 demo patients, 2 hospitals, 65 beds, and 16 staff if the database is empty.
+## Triage scoring
 
-### Scoring pipeline
+The intake is normalized into a 15-feature vector. Two paths run in parallel:
 
-```mermaid
-flowchart TD
-    Start["Patient intake"] --> Parse["Parse vitals, complaint, flags"]
-    Parse --> AgeBand["Compute age band"]
-    Parse --> Symptoms["Extract symptom flags"]
-    AgeBand --> Features["Build 15-dim feature vector"]
-    Symptoms --> Features
+1. **Rule safety net** — hard safety rules that can immediately escalate critical presentations.
+2. **Model tier** — a closed-form distillation of the classifier developed under `/model`.
 
-    Features --> RuleEngine["Rule engine (hard safety nets)"]
-    Features --> ModelTier["Model tier (distilled classifier)"]
+The fused recommendation is conservative. Low confidence, rule/model disagreement, or missing prior history can trigger a one-level escalation. Surge mode and wait-time safety windows can escalate further.
 
-    RuleEngine --> Fuse["Fuse: tier = min(rule, model)"]
-    ModelTier --> Fuse
+Safety windows used by the prototype:
 
-    Fuse --> Confidence["Compute confidence"]
-    Confidence --> Check{"Uncertain?"}
-    Check -->|"Yes"| Escalate["Escalate +1 tier"]
-    Check -->|"No"| Surge{"Surge active?"}
-    Escalate --> Surge
+| Tier | Reassessment window |
+|---|---:|
+| ESI 1–2 | 15 min |
+| ESI 3 | 30 min |
+| ESI 4–5 | 90 min |
 
-    Surge -->|"Yes"| SurgeUp["Escalate +1 tier"]
-    Surge -->|"No"| Wait{"Wait exceeds window?"}
-    SurgeUp --> Wait
+## ABHA / ABDM integration
 
-    Wait -->|"Yes"| Overdue["Escalate +1 tier"]
-    Wait -->|"No"| Final["Final recommendation"]
-    Overdue --> Final
+### Important: ABHA is not a medical-record download key
 
-    style Start fill:#dcfce7,stroke:#16a34a,color:#000
-    style RuleEngine fill:#fee2e2,stroke:#dc2626,color:#000
-    style ModelTier fill:#dbeafe,stroke:#2563eb,color:#000
-    style Final fill:#dcfce7,stroke:#16a34a,color:#000
+ABHA identifies a person's digital health account. ABDM health records are exchanged through consent-based health-information flows between participating healthcare providers and Health Information Users (HIUs). A system must not treat an ABHA number as permission to retrieve a patient's entire record.
+
+For this reason TriageSetu has a **consent gate** in the UI and keeps all ABHA credentials server-side.
+
+### Demo mode — works immediately
+
+The repository defaults to:
+
+```env
+ABDM_MODE="demo"
 ```
 
-The scoring engine runs synchronously in the Route Handler with no external model API calls. The model tier is a closed-form distillation of the classifier trained in `/model`, see "Hybrid rule and ML scoring" above for how that was validated. Rules can only escalate, never downgrade.
+This is a deterministic synthetic adapter for demonstrations. Use either of these demo ABHA numbers:
 
-### Data model
-
-```mermaid
-erDiagram
-    Hospital ||--o{ Patient : admits
-    Hospital ||--o{ Bed : contains
-    Hospital ||--o{ Staff : employs
-    Patient ||--o{ Audit : generates
-    Patient ||--o{ Note : has
-
-    Hospital {
-        string id PK
-        string code UK
-        string name
-        string type
-        int bedsTotal
-    }
-    Patient {
-        string id PK
-        string hospitalId FK
-        string displayName
-        string data
-        string score
-        int waitMinutes
-        int clinicianTier
-        string status
-        boolean revealed
-    }
-    Audit {
-        int id PK
-        string eventType
-        string patientId FK
-        string detail
-    }
-    Bed {
-        string id PK
-        string hospitalId FK
-        string code
-        string zone
-        string status
-    }
-    Staff {
-        string id PK
-        string hospitalId FK
-        string name
-        string role
-        string shift
-        boolean onDuty
-    }
+```text
+12345678901234
+98765432109876
 ```
 
----
+Workflow:
 
-## Dependencies
+```text
+New Intake
+  -> enter ABHA number
+  -> confirm patient/attendant consent
+  -> Fetch history
+  -> compact history appears
+  -> Prior history becomes available
+  -> submit intake
+  -> masked ABHA + history snapshot are stored with the patient
+```
 
-### Production stack
+The demo returns only triage-relevant categories:
 
-| Layer | Technology | Version |
-|-------|-----------|---------|
-| Framework | Next.js (App Router) | 16.1 |
-| Language | TypeScript | 5 |
-| Styling | Tailwind CSS | 4 |
-| UI components | shadcn/ui (New York) | latest |
-| ORM | Prisma | 6.11 |
-| Database | SQLite | bundled |
-| Animations | Framer Motion | 12.23 |
-| Charts | Recharts | 2.15 |
-| State | Zustand | 5.0 |
-| Theming | next-themes | 0.4 |
-| Toasts | sonner | 2.0 |
-| Validation | Zod | 4.0 |
-| Icons | lucide-react | 0.525 |
+- conditions
+- allergies
+- medications
+- recent encounters
 
-### Newspaper fonts (loaded via next/font/google)
+The raw ABHA number is not persisted in the patient record; only a masked value such as `XXXX-XXXX-1234` is retained.
 
-| Font | Role |
-|------|------|
-| UnifrakturMaguntia | Blackletter masthead |
-| Playfair Display | Didone headlines and stat numbers |
-| Lora | Old Style serif body text |
-| Geist + Geist Mono | UI sans-serif and monospace |
+### Live ABDM mode
 
-### Seeded demo data
+For an actual ABDM deployment, the application must be onboarded as the appropriate ABDM participant and use the ABDM consent/health-information exchange. ABDM's architecture is consent based; it is not a centralized database from which an application can freely download records.
 
-| Entity | Count | Notes |
-|--------|-------|-------|
-| Hospitals | 2 | District Hospital Mumbai ED (48 beds), Rural Health Centre Pune (22 beds) |
-| Patients | 20 | Pediatric, geriatric, ambiguous, zero-history, unconscious, pregnant, stroke, chest pain, asthma |
-| Beds | 65 | Across 5 zones: Resus, Major, Minor, Observation, Paediatric |
-| Staff | 16 | Across day, evening, and night shifts |
-| Audit entries | 1 | Initial SYSTEM seed event (grows with usage) |
+Set:
 
----
+```env
+ABDM_MODE="live"
+ABDM_HISTORY_ENDPOINT="https://your-registered-hiu-gateway.example/api/abha/history"
+ABDM_ACCESS_TOKEN="server-side-token"
+```
 
-## Execution Instructions
+`ABDM_HISTORY_ENDPOINT` is intentionally an adapter boundary rather than a hard-coded third-party service. Your registered HIU/gateway should perform the ABDM consent request, wait for the patient's approval, obtain the consent artefact, request the permitted health information, and normalize the resulting FHIR/ABDM records into the compact TriageSetu shape.
 
-### Prerequisites
+The browser never receives `ABDM_ACCESS_TOKEN`.
 
-- Node.js 20 or higher
-- Bun 1.0 or higher (recommended), or npm / pnpm as alternatives
+The adapter accepts these categories and intentionally discards unrelated record content before it reaches the triage UI:
 
-### Local development
+```text
+Condition
+AllergyIntolerance
+Medication / Prescription
+OPConsultation
+DiagnosticReport
+```
+
+### Why the prototype uses an adapter
+
+ABDM integrations involve multiple parties and asynchronous consent/data flows. A simple `GET /history?abha=...` implementation would be misleading and unsafe. The adapter lets the prototype be fully demonstrable now while leaving a clean boundary for the registered ABDM HIU implementation.
+
+## ABHA API endpoints in TriageSetu
+
+### `POST /api/abha/history`
+
+Request:
+
+```json
+{
+  "abhaNumber": "12345678901234",
+  "consent": true,
+  "hospitalId": "..."
+}
+```
+
+The server validates the 14-digit ABHA number and requires `consent: true`. It returns the compact history object and records an `ABHA_HISTORY_REQUEST` audit event containing only the last four ABHA digits.
+
+### `POST /api/patients`
+
+The intake request can include:
+
+- `abha_number_masked`
+- `abha_history`
+
+The patient record therefore retains the history that was actually shown during intake, rather than requiring a second ABHA lookup merely to open the patient detail view.
+
+## Privacy and safety decisions
+
+- Explicit consent checkbox before history retrieval.
+- ABHA credentials remain server-side.
+- Raw ABHA numbers are not persisted in the patient record.
+- Audit records retain only the last four ABHA digits.
+- Only a small, triage-relevant subset of history is displayed.
+- History is clinical context; it is not directly injected into the ML scorer.
+- Missing history can lower confidence and trigger clinician review.
+- Clinician overrides require a rationale and are audit logged.
+- Break-glass access is separately represented in the intake and audit trail.
+
+## UI changes
+
+### New intake
+
+The intake page is now divided into clear sections:
+
+1. Patient identity
+2. Vital signs
+3. Presentation
+4. Prior history / ABHA
+5. Safety flags
+6. Submission
+
+The recommendation panel is kept separate and becomes sticky on large screens. This prevents the intake controls from competing with the scoring explanation.
+
+### Patient detail modal
+
+The patient modal was reorganized into:
+
+```text
+Header / identity / confidence
+        |
+        v
+Vital-sign strip
+        |
+        +-------------------+
+        |                   |
+Clinical summary      Recommendation
+Chief complaint       trace
+Prior history         primary inputs
+        |                   |
+        +-------------------+
+        |
+Clinical notes
+        |
+Fixed action footer
+```
+
+The body scrolls independently while the tier/rationale/actions footer stays visible. This prevents the previous overlap and cramped action controls.
+
+## Local setup
+
+### Requirements
+
+- Node.js 20+
+- Bun 1.0+ recommended, or npm/pnpm
+
+### Install
 
 ```bash
-# Clone the repository
 git clone https://github.com/HarshvardhanJ/TriageSetu.git
 cd TriageSetu
-
-# Install dependencies
 bun install
-
-# Push the Prisma schema (creates db/custom.db if missing)
 bun run db:push
-
-# Start the dev server
 bun run dev
 ```
 
-Open http://localhost:3000. You will land on the 3D newspaper hero page. Click Open dashboard to enter the workspace.
+Open `http://localhost:3000`.
 
-The app auto-seeds 20 demo patients, 2 hospitals, 65 beds, and 16 staff on first API call if the database is empty. No manual seed step is needed.
+### Environment
 
-### Available scripts
+Copy `.env.example` to `.env.local`:
 
-| Command | Description |
-|---------|-------------|
-| `bun run dev` | Start dev server on port 3000 |
+```bash
+cp .env.example .env.local
+```
+
+For a normal prototype demo, leave:
+
+```env
+ABDM_MODE="demo"
+```
+
+No ABDM credentials are required in demo mode.
+
+## Useful commands
+
+| Command | Purpose |
+|---|---|
+| `bun run dev` | Development server |
 | `bun run build` | Production build |
-| `bun run start` | Start production server |
-| `bun run lint` | Run ESLint |
-| `bun run db:push` | Push schema to SQLite |
-| `bun run db:generate` | Regenerate Prisma client |
-| `bun run db:reset` | Reset database (re-seeds on next load) |
+| `bun run start` | Production server |
+| `bun run lint` | ESLint |
+| `bun run db:push` | Apply Prisma schema |
+| `bun run db:generate` | Generate Prisma client |
+| `bun run db:reset` | Reset the demo database |
 
-### Reset to baseline
+## Project structure
 
-```bash
-# Via API
-curl -X POST http://localhost:3000/api/demo/reset
-
-# Or via UI: Settings, then Reset to demo baseline
-```
-
----
-
-## Deployment
-
-### Push to GitHub
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: TriageSetu"
-git branch -M main
-git remote add origin https://github.com/HarshvardhanJ/TriageSetu.git
-git push -u origin main
-```
-
-### Deploy on Vercel
-
-1. Go to vercel.com/new and import your GitHub repo.
-2. Framework preset is auto-detected as Next.js.
-3. Build command: `bun run build`.
-4. Install command: `bun install`.
-5. No environment variables are required for the demo. The app auto-detects Vercel and writes SQLite to `/tmp`, which is the only writable location on Vercel's serverless filesystem.
-6. Deploy.
-
-### Note on SQLite and Vercel
-
-Vercel's serverless functions have an ephemeral filesystem. The app handles this by redirecting the SQLite file to `/tmp/triagesetu.db` when `process.env.VERCEL` is set. The database is re-seeded on every cold start, so data persists for the lifetime of a single container (typically minutes) and resets on the next cold start.
-
-For true persistence across cold starts, swap to a managed Postgres. Change `provider = "postgresql"` in `prisma/schema.prisma` and set `DATABASE_URL` to your Postgres connection string. Neon, Supabase, and PlanetScale all offer free tiers that work with this schema.
-
----
-
-## Safety and Compliance
-
-| Guarantee | Implementation |
-|-----------|----------------|
-| Rules can only escalate | `tier = Math.min(ruleTier, mlTier)`, never raises the floor |
-| Confidence surfaced | Every recommendation ships with a percentage and label |
-| Uncertainty triggers escalation | Low confidence, disagreement, or missing history escalates by one tier |
-| Surge policy | Toggleable, rescores entire queue on toggle |
-| Deterioration monitoring | Wait-time safety windows (15, 30, 90 minutes) auto-escalate |
-| Clinician override | Requires rationale, clinician ID, and role. Audit-locked. |
-| Pseudonymous by default | Auto-assigned TS-XXX IDs, raw data masked in bulk exports |
-| Break-glass | Records access event to audit trail |
-| Multi-jurisdiction | DPDP, HIPAA, GDPR, PDPA settings |
-| Configurable retention | 30, 90, 180, or 365 days |
-
----
-
-## Project Structure
-
-```
-triagesetu/
+```text
+TriageSetu/
+├── model/                         # Synthetic training/evaluation material
 ├── prisma/
-│   └── schema.prisma              # Prisma schema — 7 database models
-│
-├── public/
-│   ├── favicon.svg                # TriageSetu stethoscope favicon
-│   └── logo.svg                   # Application logo
-│
-├── db/
-│   └── custom.db                  # Seeded SQLite database
-│                                  # 20 patients, 2 hospitals,
-│                                  # 65 beds, and 16 staff members
-│
+│   └── schema.prisma              # Database schema
 ├── src/
 │   ├── app/
-│   │   ├── api/                   # 17 REST API route handlers
-│   │   ├── globals.css            # Tailwind CSS, newspaper theme & 3D utilities
-│   │   ├── layout.tsx             # Fonts, ThemeProvider & metadata
-│   │   └── page.tsx               # Landing page → dashboard switcher
-│   │
+│   │   └── api/                   # Next.js API route handlers
+│   │       └── abha/history/      # Consent-gated ABHA history endpoint
 │   ├── components/
-│   │   ├── ui/                    # Reusable shadcn/ui components
-│   │   │
-│   │   └── triage/                # Core TriageSetu interface
-│   │       ├── hero-landing.tsx   # 3D newspaper-style landing page
-│   │       ├── sidebar.tsx        # 3D navigation rail
-│   │       ├── header.tsx         # Sticky glassmorphism header
-│   │       ├── live-queue.tsx     # Live patient queue with 3D tilt cards
-│   │       ├── patient-detail.tsx # Patient details & sticky override actions
-│   │       ├── intake-form.tsx    # Patient intake with live triage scoring
-│   │       ├── audit-trail.tsx    # Gradient-based activity timeline
-│   │       ├── analytics.tsx      # Recharts analytics dashboard
-│   │       ├── bed-board.tsx      # Hospital bed & zone management
-│   │       ├── staff-roster.tsx   # On-duty staff management
-│   │       ├── settings-view.tsx  # Compliance settings & system reset
-│   │       ├── metric-card.tsx    # Animated 3D statistics cards
-│   │       ├── tier-badge.tsx     # Glass-style triage tier badges
-│   │       └── confidence-meter.tsx # Triage confidence visualization
-│   │
+│   │   └── triage/
+│   │       ├── intake-form.tsx    # Intake + ABHA workflow
+│   │       ├── patient-detail.tsx # Patient modal + history + actions
+│   │       ├── live-queue.tsx
+│   │       ├── analytics.tsx
+│   │       ├── bed-board.tsx
+│   │       ├── staff-roster.tsx
+│   │       ├── audit-trail.tsx
+│   │       └── settings-view.tsx
 │   └── lib/
-│       ├── triage.ts              # TypeScript triage scoring engine
-│       ├── service.ts             # Database operations & schema bootstrap
-│       ├── demo-data.ts           # Seed data for patients, beds & staff
-│       ├── api.ts                 # Typed REST API client
-│       ├── store.ts               # Zustand global state management
-│       └── db.ts                  # Prisma client (Vercel-safe)
-│
-├── .env                           # Environment variables
-├── next.config.ts                 # Next.js configuration
-├── vercel.json                    # Vercel deployment configuration
-├── package.json                   # Dependencies & project scripts
-└── README.md                      # Project documentation
+│       ├── triage.ts              # Scoring engine
+│       ├── service.ts             # DB/service layer
+│       ├── api.ts                 # Browser API client
+│       └── abha.ts                # Server-only ABHA/ABDM adapter
+├── db/                            # Local SQLite database
+├── .env.example
+└── README.md
 ```
 
----
+## Deployment notes
 
-## Try the Prototype
+The current prototype uses SQLite. On Vercel/serverless infrastructure the filesystem is ephemeral, so it is suitable for a demonstration rather than durable clinical storage. A real deployment should use a managed database, proper authentication/authorization, secrets management, audit retention controls, security testing, and the required ABDM onboarding/security processes.
 
-1. **Live queue.** Browse the 20-patient queue. Observe tier badges, confidence meters, and deterioration flags.
-2. **Patient detail.** Click any card. Review the decision trace (rule vs ML vs fused), see vital cards, add notes.
-3. **Override flow.** Change tier, write a rationale, click Record decision. Verify it appears in the audit trail.
-4. **Surge protocol.** Click 3x Surge in the header. Watch borderline cases auto-escalate.
-5. **Deterioration.** Click Advance then +30 min. Patients beyond their safety window get escalated.
-6. **New intake.** Fill the form with a chest pain complaint. Watch the live preview show ESI 2 instantly.
-7. **Hospital switch.** Top-right dropdown. Switch between Mumbai ED and Rural Pune.
-8. **Analytics.** Tier distribution, arrivals vs discharges, wait by tier, age-band radar.
-9. **Bed board.** Five zones with live status (free, occupied, cleaning, reserved).
-10. **Reset.** Settings, then Reset to demo baseline restores the 20 baseline cases.
+Do not put ABDM credentials in `NEXT_PUBLIC_*` environment variables or client-side code.
 
----
+## ABDM references
+
+- ABDM: https://abdm.gov.in/
+- ABDM privacy policy: https://abdm.gov.in/static/media/New_Privacy_Policy.3833de7c114b64627a9d.pdf
 
 ## License
 
-MIT. See LICENSE file.
-
-## Acknowledgements
-
-Built for the Accenture Innovation Challenge, Round 2 (PatientTriage AI track). Inspired by the real-world complexities of emergency care in India and the clinicians who serve under enormous pressure every day.
+MIT
