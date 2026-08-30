@@ -405,4 +405,4 @@ MIT. See LICENSE file.
 
 ## Acknowledgements
 
-Built for the Accenture Innovation Challenge, Round 2 (PatientTriage.ai track). Inspired by the real-world complexities of emergency care in India and the clinicians who serve under enormous pressure every day.
+Built for the Accenture Innovation Challenge, Round 2 (PatientTriage AI track). Inspired by the real-world complexities of emergency care in India and the clinicians who serve under enormous pressure every day.
