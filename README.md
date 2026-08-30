@@ -238,7 +238,7 @@ erDiagram
 
 ```bash
 # Clone the repository
-git clone https://github.com/<your-username>/triagesetu.git
+git clone https://github.com/HarshvardhanJ/triagesetu.git
 cd triagesetu
 
 # Install dependencies
