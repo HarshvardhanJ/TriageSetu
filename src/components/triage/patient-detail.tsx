@@ -76,9 +76,9 @@ export function PatientDetail({ patient, open, onClose, onUpdated }: { patient: 
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
-      <DialogContent className="fixed left-1/2 top-1/2 z-50 flex h-[92vh] w-[calc(100vw-2rem)] max-w-[1100px] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden rounded-xl border bg-card p-0 sm:max-w-[1100px]">
+      <DialogContent className="fixed left-1/2 top-1/2 z-50 flex h-[92vh] w-[calc(100vw-2rem)] !max-w-[1100px] -translate-x-1/2 -translate-y-1/2 flex-col gap-0 overflow-hidden rounded-xl border bg-card p-0">
         <DialogHeader className="shrink-0 border-b border-border px-5 py-4 sm:px-6">
-          <div className="grid gap-3 pr-8 sm:grid-cols-[1fr_auto] sm:items-center">
+          <div className="grid gap-3 pr-8 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <DialogTitle className="text-lg">{patient.displayName}</DialogTitle>
@@ -111,7 +111,7 @@ export function PatientDetail({ patient, open, onClose, onUpdated }: { patient: 
               </Panel>
 
               <Panel title="Chief complaint">
-                <p className="text-sm leading-6 break-words">{data.complaint}</p>
+                <p className="break-words text-sm leading-6">{data.complaint}</p>
                 <div className="mt-2 text-xs text-muted-foreground">{data.history_available ? "Prior history available" : "No prior history linked"}{data.active_bleeding ? " · Active bleeding" : ""}</div>
               </Panel>
 
@@ -144,7 +144,7 @@ export function PatientDetail({ patient, open, onClose, onUpdated }: { patient: 
             </section>
           </div>
 
-          <section className="mt-5 border-t border-border pt-4 pb-2">
+          <section className="mt-5 border-t border-border pb-2 pt-4">
             <div className="flex items-center justify-between gap-3"><h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clinical notes</h2><span className="text-xs text-muted-foreground">{notes.length} recorded</span></div>
             {notes.length > 0 && <div className="mt-3 max-h-32 space-y-2 overflow-y-auto">{notes.map((note) => <div key={note.id} className="border-l-2 border-primary pl-3 text-sm"><p>{note.text}</p><p className="mt-1 text-xs text-muted-foreground">{note.author} · {new Date(note.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false })}</p></div>)}</div>}
             <div className="mt-3 flex gap-2"><Textarea value={noteText} onChange={(event) => setNoteText(event.target.value)} placeholder="Add a clinical note" rows={1} className="min-h-9 resize-none text-sm" /><Button size="sm" className="h-9 shrink-0" onClick={addNote} disabled={!noteText.trim()} aria-label="Add clinical note"><Send className="h-3.5 w-3.5" /></Button></div>
@@ -175,7 +175,7 @@ function Panel({ title, icon, children }: { title: string; icon?: ReactNode; chi
 }
 
 function HistoryList({ title, items }: { title: string; items: string[] }) {
-  return <div className="rounded-md border border-border bg-muted/20 p-2.5"><div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div><div className="mt-1.5 space-y-1 text-[11px]">{items.length ? items.map((item) => <div key={item} className="rounded bg-card px-2 py-1 break-words">{item}</div>) : <span className="text-muted-foreground">None returned</span>}</div></div>;
+  return <div className="rounded-md border border-border bg-muted/20 p-2.5"><div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</div><div className="mt-1.5 space-y-1 text-[11px]">{items.length ? items.map((item) => <div key={item} className="break-words rounded bg-card px-2 py-1">{item}</div>) : <span className="text-muted-foreground">None returned</span>}</div></div>;
 }
 
 function Vital({ icon: Icon, label, value, unit }: { icon: typeof HeartPulse; label: string; value: string | number; unit: string }) {
