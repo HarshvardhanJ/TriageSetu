@@ -1,219 +1,427 @@
 # TriageSetu
 
-Safety-first emergency-department triage prototype. TriageSetu combines transparent rule-based safety nets with a model-derived risk tier, explicit uncertainty, clinician override, deterioration reassessment, and an append-only audit trail.
+### Intelligent, safety-first triage for faster emergency-care decisions
 
-Built for the PatientTriage.ai track of the Accenture Innovation Challenge, Round 2.
+**Accenture Innovation Challenge 2026 · Prototype Development**  
+**Track: PatientTriage.ai**
 
-> **Clinical safety boundary:** TriageSetu is a workflow prototype, not a diagnostic device or medical advice. Recommendations are advisory and require clinician review. Demo patient and ABHA records are synthetic.
+> **TriageSetu turns a crowded emergency-department queue into a continuously prioritized, explainable workflow — combining clinical safety rules, ML-assisted risk scoring, ABHA-enabled patient context, and clinician oversight.**
 
-## What is implemented
+---
 
-- Age-aware normalization for pediatric, adult, and geriatric patients.
-- Hybrid rule + model-derived triage scoring with conservative fusion.
-- Explicit confidence and uncertainty escalation.
-- Red-flag safety rules for AVPU, bleeding, oxygenation, neurological symptoms, chest symptoms, and age-specific vital deviations.
-- Live intake scoring before submission.
-- Queue prioritization, surge mode, and wait-time deterioration reassessment.
-- Clinician confirmation/override with rationale and audit logging.
-- Clinical notes and patient-detail workflow.
-- Bed board, staff roster, analytics, audit trail, and settings views.
-- **ABHA history workflow:** consent-gated ABHA lookup, compact history display, masked ABHA storage, and audit logging.
+## The problem
 
-## Architecture
+Emergency departments operate under pressure: many patients arrive at once, clinical information is incomplete, and the order in which patients are reassessed can change rapidly as waiting time increases.
+
+The challenge is not simply predicting risk. A useful triage system must answer four questions at the point of care:
+
+1. **Who needs attention first?**
+2. **Why was this patient prioritized?**
+3. **How confident is the system?**
+4. **What happens when the clinician disagrees or the patient's condition changes?**
+
+TriageSetu is designed around these questions.
+
+---
+
+## Our solution
+
+TriageSetu is a **clinician-in-the-loop emergency triage platform** built around a conservative hybrid decision architecture.
 
 ```text
-Browser / Next.js UI
-        |
-        v
-Next.js Route Handlers
-        |
-        +---- Triage scoring engine
-        |
-        +---- ABDM/ABHA adapter ----> registered HIU/gateway (live mode)
-        |
-        v
-Prisma + SQLite
+Patient arrival
+      │
+      ▼
+Structured intake ────────► ABHA / prior-history context
+      │                              │
+      ▼                              ▼
+Clinical safety rules        Relevant patient history
+      │                              │
+      └──────────────┬───────────────┘
+                     ▼
+              ML risk estimation
+                     │
+                     ▼
+            Conservative fusion
+                     │
+                     ▼
+        ESI-prioritized queue
+                     │
+          ┌──────────┴──────────┐
+          ▼                     ▼
+   Clinician review       Reassessment loop
+          │                     │
+          ▼                     ▼
+   Confirm / override     Escalate if needed
+          │                     │
+          └──────────┬──────────┘
+                     ▼
+              Audit trail
 ```
 
-The scoring engine runs in-process. The runtime does not call an external ML API; `src/lib/triage.ts` contains the closed-form model-tier distillation used by the prototype.
+The result is not a black-box score. It is an **operational triage workflow** that keeps the clinician in control while making the reasoning and urgency visible.
 
-## Triage scoring
+---
 
-The intake is normalized into a 15-feature vector. Two paths run in parallel:
+## Why TriageSetu stands out
 
-1. **Rule safety net** — hard safety rules that can immediately escalate critical presentations.
-2. **Model tier** — a closed-form distillation of the classifier developed under `/model`.
+### 1. Safety-first hybrid intelligence
 
-The fused recommendation is conservative. Low confidence, rule/model disagreement, or missing prior history can trigger a one-level escalation. Surge mode and wait-time safety windows can escalate further.
+Instead of asking an ML model to make the entire decision, TriageSetu combines:
 
-Safety windows used by the prototype:
+- **Hard clinical safety rules** for red-flag presentations.
+- **Model-derived risk estimation** from structured patient signals.
+- **Conservative fusion** when the two paths disagree.
+- **Explicit confidence and uncertainty** rather than presenting every prediction as equally reliable.
 
-| Tier | Reassessment window |
+Critical safety signals can therefore take priority over a lower model score.
+
+### 2. Triage is dynamic, not a one-time prediction
+
+A patient's position in the queue is not treated as permanent.
+
+TriageSetu incorporates:
+
+- wait-time tracking
+- tier-specific reassessment windows
+- deterioration escalation
+- surge-mode prioritization
+- continuous queue reprioritization
+
+This reflects the real ED workflow: **the risk of a patient who has been waiting is not necessarily the same as the risk measured at arrival.**
+
+### 3. Explainability at the point of care
+
+Every recommendation exposes a compact decision trace:
+
+```text
+Rule safety net       → ESI tier
+ML risk model         → ESI tier
+                         ↓
+System recommendation → ESI tier
+                         ↓
+Primary contributing inputs
+```
+
+Clinicians can see the reasoning without having to interpret a model dashboard or inspect raw probabilities.
+
+### 4. ABHA-enabled patient context
+
+Prior medical history can be brought into the triage workflow through a dedicated, consent-gated ABHA/ABDM integration layer.
+
+The interface focuses on the information most useful during triage:
+
+- relevant conditions
+- allergies
+- medications
+- recent encounters
+
+ABHA information is deliberately presented as **clinical context**, not as an automatic instruction to the scoring model.
+
+The prototype includes a deterministic synthetic ABHA demonstration flow so the complete workflow can be evaluated without requiring real patient records.
+
+### 5. Clinician authority is preserved
+
+The system recommends; **the clinician decides**.
+
+A clinician can:
+
+- confirm the recommendation
+- change the clinical tier
+- provide a rationale
+- transfer the patient
+- mark treatment/disposition
+- add clinical notes
+
+Confirmation and overrides are recorded in the audit trail, creating accountability without removing human judgment.
+
+---
+
+# Core product experience
+
+## 1. New patient intake
+
+A structured intake captures the signals used by the triage engine:
+
+- age and demographic information
+- heart rate
+- respiratory rate
+- SpO₂
+- temperature
+- systolic blood pressure
+- AVPU consciousness level
+- chief complaint
+- safety flags
+- prior-history availability
+
+The recommendation updates **live while the clinician types**, allowing the intake operator to see the emerging triage result before submitting the patient.
+
+### ABHA workflow
+
+```text
+Enter ABHA number
+       ↓
+Confirm patient/attendant consent
+       ↓
+Fetch relevant history
+       ↓
+Review compact history
+       ↓
+Continue triage
+```
+
+The application masks the stored ABHA identifier and keeps the history retrieval behind a server-side adapter.
+
+---
+
+## 2. Live emergency queue
+
+The queue is designed for rapid scanning rather than data-heavy administration.
+
+Patients are surfaced using:
+
+- ESI tier
+- confidence
+- wait time
+- deterioration/reassessment state
+- key red flags
+- clinical status
+
+Urgent patients remain visually prominent while lower-risk patients continue to be monitored rather than disappearing into a static list.
+
+---
+
+## 3. Patient detail workspace
+
+Selecting a patient opens a dedicated clinical workspace containing:
+
+- patient identity and current triage tier
+- confidence level
+- vital-sign strip
+- clinical summary
+- chief complaint
+- prior history
+- recommendation trace
+- primary model inputs
+- clinical notes
+- clinician tier confirmation/override
+- transfer and disposition actions
+
+The modal uses an independently scrolling clinical body and a persistent action area so the decision controls remain immediately accessible.
+
+---
+
+## 4. Deterioration and reassessment
+
+TriageSetu treats waiting as a clinical variable.
+
+Prototype reassessment windows are tier-aware:
+
+| Triage tier | Reassessment window |
 |---|---:|
 | ESI 1–2 | 15 min |
 | ESI 3 | 30 min |
 | ESI 4–5 | 90 min |
 
-## ABHA / ABDM integration
+A patient whose waiting time crosses the safety boundary can be surfaced for reassessment rather than remaining passively ranked by the original intake score.
 
-### Important: ABHA is not a medical-record download key
+---
 
-ABHA identifies a person's digital health account. ABDM health records are exchanged through consent-based health-information flows between participating healthcare providers and Health Information Users (HIUs). A system must not treat an ABHA number as permission to retrieve a patient's entire record.
+## 5. Surge mode
 
-For this reason TriageSetu has a **consent gate** in the UI and keeps all ABHA credentials server-side.
+During periods of unusually high demand, the workflow can switch into **surge mode**, increasing the operational visibility of high-risk patients and tightening prioritization around the most important safety signals.
 
-### Demo mode — works immediately
+This is intended to support the exact environment where manual triage queues become hardest to manage: **many arrivals, limited attention, and rapidly changing priorities.**
 
-The repository defaults to:
+---
 
-```env
-ABDM_MODE="demo"
+# The intelligence layer
+
+TriageSetu uses a 15-feature structured representation of the patient.
+
+Two decision paths run independently:
+
+### Rule safety net
+
+Transparent safety rules identify presentations that require immediate escalation, including signals associated with:
+
+- impaired consciousness
+- severe bleeding
+- oxygenation compromise
+- neurological symptoms
+- concerning chest symptoms
+- age-specific vital-sign abnormalities
+
+### Model-derived risk tier
+
+The model path estimates a triage risk tier from the structured clinical signal.
+
+The runtime uses the distilled scoring logic in `src/lib/triage.ts`, allowing the complete prototype to run locally without depending on an external inference service.
+
+### Conservative fusion
+
+The final recommendation considers:
+
+```text
+Rule result
+     +
+Model result
+     +
+Confidence / uncertainty
+     +
+History availability
+     +
+Wait-time / reassessment state
+     ↓
+Final recommended tier
 ```
 
-This is a deterministic synthetic adapter for demonstrations. Use either of these demo ABHA numbers:
+When uncertainty or disagreement is meaningful, the system favors escalation and clinician review rather than false precision.
+
+---
+
+# Trust, privacy & accountability by design
+
+Healthcare AI needs more than a good prediction. TriageSetu therefore treats **trust as a product feature**.
+
+### Consent-aware health-data access
+
+ABHA history retrieval is gated by an explicit consent action in the intake flow.
+
+### Minimal data exposure
+
+Only a compact, triage-relevant subset of patient history is surfaced in the UI.
+
+### Masked identity storage
+
+The raw ABHA number is not retained in the patient record; the displayed identifier is masked.
+
+### Clinician override with rationale
+
+A change to the recommended tier requires a clinical rationale, preserving the human decision behind the final action.
+
+### Append-only audit trail
+
+Important workflow events — including scoring, overrides, history access, and status changes — are recorded for traceability.
+
+### Human-in-the-loop by default
+
+TriageSetu is designed to **augment clinical prioritization, not replace clinical judgment**.
+
+---
+
+# Product modules
+
+| Module | Purpose |
+|---|---|
+| **Live Queue** | Prioritized ED patient workflow |
+| **New Intake** | Structured arrival assessment + live scoring |
+| **ABHA History** | Consent-gated prior-history retrieval |
+| **Patient Detail** | Explainable clinical review workspace |
+| **Reassessment** | Wait-time safety monitoring |
+| **Surge Mode** | High-load operational prioritization |
+| **Bed Board** | Capacity visibility |
+| **Staff Roster** | Operational staffing view |
+| **Analytics** | Queue and triage insights |
+| **Audit Trail** | Accountability and event history |
+| **Settings** | Hospital/workflow configuration |
+
+---
+
+# Technology
+
+TriageSetu is a full-stack web prototype built for rapid deployment and demonstration.
+
+```text
+Frontend
+  Next.js 16
+  React 19
+  TypeScript
+  Tailwind CSS
+  Radix UI
+  Framer Motion
+
+Application
+  Next.js Route Handlers
+  Structured triage engine
+  ABHA/ABDM adapter
+
+Data
+  Prisma ORM
+  SQLite for the prototype
+
+Visualization
+  Recharts
+
+State / UX
+  Zustand
+  React Query
+  React Hook Form
+```
+
+The architecture keeps the scoring engine, service layer, API boundary, and UI components separated so the prototype can evolve into a larger clinical platform.
+
+---
+
+# ABHA / ABDM integration architecture
+
+TriageSetu treats ABHA as an identity and consent-aware health-data entry point rather than as a direct medical-record download key.
+
+```text
+TriageSetu
+    │
+    ▼
+Consent-aware ABHA workflow
+    │
+    ▼
+ABHA / ABDM adapter
+    │
+    ├── Demo mode → synthetic health history
+    │
+    └── Live mode → registered ABDM/HIU integration
+```
+
+The adapter normalizes relevant information into a compact structure that the application can display consistently.
+
+The live integration boundary is server-side so credentials are never exposed to the browser.
+
+---
+
+# Demo
+
+The repository includes a synthetic ABHA demonstration flow for evaluating the complete user experience.
+
+Demo ABHA numbers:
 
 ```text
 12345678901234
 98765432109876
 ```
 
-Workflow:
+To demonstrate the workflow:
 
-```text
-New Intake
-  -> enter ABHA number
-  -> confirm patient/attendant consent
-  -> Fetch history
-  -> compact history appears
-  -> Prior history becomes available
-  -> submit intake
-  -> masked ABHA + history snapshot are stored with the patient
-```
+1. Open **New Intake**.
+2. Enter the patient's structured clinical information.
+3. Enter one of the demo ABHA numbers.
+4. Confirm consent.
+5. Select **Fetch history**.
+6. Review the returned conditions, allergies, medications, and encounters.
+7. Submit the patient.
+8. Open the patient from the queue to see the history alongside the recommendation trace.
+9. Confirm or override the recommended tier with a clinical rationale.
 
-The demo returns only triage-relevant categories:
+This makes the entire workflow demonstrable from **arrival → history → scoring → queue → clinician review → disposition**.
 
-- conditions
-- allergies
-- medications
-- recent encounters
+---
 
-The raw ABHA number is not persisted in the patient record; only a masked value such as `XXXX-XXXX-1234` is retained.
-
-### Live ABDM mode
-
-For an actual ABDM deployment, the application must be onboarded as the appropriate ABDM participant and use the ABDM consent/health-information exchange. ABDM's architecture is consent based; it is not a centralized database from which an application can freely download records.
-
-Set:
-
-```env
-ABDM_MODE="live"
-ABDM_HISTORY_ENDPOINT="https://your-registered-hiu-gateway.example/api/abha/history"
-ABDM_ACCESS_TOKEN="server-side-token"
-```
-
-`ABDM_HISTORY_ENDPOINT` is intentionally an adapter boundary rather than a hard-coded third-party service. Your registered HIU/gateway should perform the ABDM consent request, wait for the patient's approval, obtain the consent artefact, request the permitted health information, and normalize the resulting FHIR/ABDM records into the compact TriageSetu shape.
-
-The browser never receives `ABDM_ACCESS_TOKEN`.
-
-The adapter accepts these categories and intentionally discards unrelated record content before it reaches the triage UI:
-
-```text
-Condition
-AllergyIntolerance
-Medication / Prescription
-OPConsultation
-DiagnosticReport
-```
-
-### Why the prototype uses an adapter
-
-ABDM integrations involve multiple parties and asynchronous consent/data flows. A simple `GET /history?abha=...` implementation would be misleading and unsafe. The adapter lets the prototype be fully demonstrable now while leaving a clean boundary for the registered ABDM HIU implementation.
-
-## ABHA API endpoints in TriageSetu
-
-### `POST /api/abha/history`
-
-Request:
-
-```json
-{
-  "abhaNumber": "12345678901234",
-  "consent": true,
-  "hospitalId": "..."
-}
-```
-
-The server validates the 14-digit ABHA number and requires `consent: true`. It returns the compact history object and records an `ABHA_HISTORY_REQUEST` audit event containing only the last four ABHA digits.
-
-### `POST /api/patients`
-
-The intake request can include:
-
-- `abha_number_masked`
-- `abha_history`
-
-The patient record therefore retains the history that was actually shown during intake, rather than requiring a second ABHA lookup merely to open the patient detail view.
-
-## Privacy and safety decisions
-
-- Explicit consent checkbox before history retrieval.
-- ABHA credentials remain server-side.
-- Raw ABHA numbers are not persisted in the patient record.
-- Audit records retain only the last four ABHA digits.
-- Only a small, triage-relevant subset of history is displayed.
-- History is clinical context; it is not directly injected into the ML scorer.
-- Missing history can lower confidence and trigger clinician review.
-- Clinician overrides require a rationale and are audit logged.
-- Break-glass access is separately represented in the intake and audit trail.
-
-## UI changes
-
-### New intake
-
-The intake page is now divided into clear sections:
-
-1. Patient identity
-2. Vital signs
-3. Presentation
-4. Prior history / ABHA
-5. Safety flags
-6. Submission
-
-The recommendation panel is kept separate and becomes sticky on large screens. This prevents the intake controls from competing with the scoring explanation.
-
-### Patient detail modal
-
-The patient modal was reorganized into:
-
-```text
-Header / identity / confidence
-        |
-        v
-Vital-sign strip
-        |
-        +-------------------+
-        |                   |
-Clinical summary      Recommendation
-Chief complaint       trace
-Prior history         primary inputs
-        |                   |
-        +-------------------+
-        |
-Clinical notes
-        |
-Fixed action footer
-```
-
-The body scrolls independently while the tier/rationale/actions footer stays visible. This prevents the previous overlap and cramped action controls.
-
-## Local setup
+# Running locally
 
 ### Requirements
 
 - Node.js 20+
-- Bun 1.0+ recommended, or npm/pnpm
+- Bun 1.0+ recommended
 
-### Install
+### Setup
 
 ```bash
 git clone https://github.com/HarshvardhanJ/TriageSetu.git
@@ -223,51 +431,55 @@ bun run db:push
 bun run dev
 ```
 
-Open `http://localhost:3000`.
+Open:
+
+```text
+http://localhost:3000
+```
 
 ### Environment
 
-Copy `.env.example` to `.env.local`:
+Create `.env.local` from `.env.example`.
 
-```bash
-cp .env.example .env.local
-```
-
-For a normal prototype demo, leave:
+For the included demonstration workflow:
 
 ```env
 ABDM_MODE="demo"
 ```
 
-No ABDM credentials are required in demo mode.
+No external ABHA credentials are required for the synthetic demo.
 
-## Useful commands
+---
 
-| Command | Purpose |
-|---|---|
-| `bun run dev` | Development server |
-| `bun run build` | Production build |
-| `bun run start` | Production server |
-| `bun run lint` | ESLint |
-| `bun run db:push` | Apply Prisma schema |
-| `bun run db:generate` | Generate Prisma client |
-| `bun run db:reset` | Reset the demo database |
+# Useful commands
 
-## Project structure
+```bash
+bun run dev          # Development server
+bun run build        # Production build
+bun run start        # Production server
+bun run lint         # ESLint
+bun run db:push      # Apply Prisma schema
+bun run db:generate  # Generate Prisma client
+bun run db:reset     # Reset demo database
+```
+
+---
+
+# Repository structure
 
 ```text
 TriageSetu/
-├── model/                         # Synthetic training/evaluation material
+├── model/                       # Model development / evaluation material
 ├── prisma/
-│   └── schema.prisma              # Database schema
+│   └── schema.prisma            # Database schema
 ├── src/
 │   ├── app/
-│   │   └── api/                   # Next.js API route handlers
-│   │       └── abha/history/      # Consent-gated ABHA history endpoint
+│   │   └── api/                 # API route handlers
+│   │       └── abha/history/    # ABHA history endpoint
 │   ├── components/
-│   │   └── triage/
-│   │       ├── intake-form.tsx    # Intake + ABHA workflow
-│   │       ├── patient-detail.tsx # Patient modal + history + actions
+│   │   └── triage/              # Clinical workflow UI
+│   │       ├── intake-form.tsx
+│   │       ├── patient-detail.tsx
 │   │       ├── live-queue.tsx
 │   │       ├── analytics.tsx
 │   │       ├── bed-board.tsx
@@ -275,25 +487,37 @@ TriageSetu/
 │   │       ├── audit-trail.tsx
 │   │       └── settings-view.tsx
 │   └── lib/
-│       ├── triage.ts              # Scoring engine
-│       ├── service.ts             # DB/service layer
-│       ├── api.ts                 # Browser API client
-│       └── abha.ts                # Server-only ABHA/ABDM adapter
-├── db/                            # Local SQLite database
+│       ├── triage.ts             # Triage scoring engine
+│       ├── service.ts            # Data/service layer
+│       ├── api.ts                # Browser API client
+│       └── abha.ts               # ABHA/ABDM adapter
+├── db/                           # Prototype database
 ├── .env.example
 └── README.md
 ```
 
-## Deployment notes
+---
 
-The current prototype uses SQLite. On Vercel/serverless infrastructure the filesystem is ephemeral, so it is suitable for a demonstration rather than durable clinical storage. A real deployment should use a managed database, proper authentication/authorization, secrets management, audit retention controls, security testing, and the required ABDM onboarding/security processes.
+# Vision
 
-Do not put ABDM credentials in `NEXT_PUBLIC_*` environment variables or client-side code.
+TriageSetu's goal is simple:
 
-## ABDM references
+> **Make the right patient visible at the right time, while keeping the clinician in control.**
 
-- ABDM: https://abdm.gov.in/
-- ABDM privacy policy: https://abdm.gov.in/static/media/New_Privacy_Policy.3833de7c114b64627a9d.pdf
+The prototype brings together three capabilities that are often separated in emergency-care software:
+
+**clinical safety intelligence + longitudinal patient context + operational queue management.**
+
+The result is a triage workflow designed not merely to predict risk, but to help emergency teams **act on risk, explain it, reassess it, and remain accountable for the final decision.**
+
+---
+
+## Team
+
+**TriageSetu**  
+Accenture Innovation Challenge 2026 · PatientTriage.ai
+
+---
 
 ## License
 
