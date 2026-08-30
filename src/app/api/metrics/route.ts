@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { ensureSeed, isSurge, listPatients } from "@/lib/service";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,13 @@ export async function GET(req: Request) {
     count: patients.filter((p) => p.score.age_band === b).length,
   }));
 
-  // Throughput approximations (simulated)
-  const arrivedLastHour = Math.max(3, Math.round(patients.length * 0.3));
-  const dischargedLastHour = Math.max(2, Math.round(patients.length * 0.22));
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+  const arrivedLastHour = await db.patient.count({
+    where: { ...(hospitalId ? { hospitalId } : {}), arrivedAt: { gte: oneHourAgo } },
+  });
+  const dischargedLastHour = await db.audit.count({
+    where: { createdAt: { gte: oneHourAgo }, eventType: { in: ["DISCHARGE", "STATUS_CHANGE"] } },
+  });
   const esiiAvg =
     patients.length > 0
       ? Math.round(

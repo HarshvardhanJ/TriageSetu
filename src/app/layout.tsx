@@ -1,39 +1,7 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, UnifrakturMaguntia, Playfair_Display, Lora } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/components/theme-provider";
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-// Newspaper fonts
-const unifraktur = UnifrakturMaguntia({
-  variable: "--font-blackletter",
-  subsets: ["latin"],
-  weight: ["400"],
-});
-
-const playfair = Playfair_Display({
-  variable: "--font-didone",
-  subsets: ["latin"],
-  weight: ["400", "700", "800", "900"],
-  style: ["normal", "italic"],
-});
-
-const lora = Lora({
-  variable: "--font-serif-old",
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  style: ["normal", "italic"],
-});
 
 export const metadata: Metadata = {
   title: "TriageSetu — Safety-first AI triage for emergency care",
@@ -74,7 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <link rel="alternate icon" href="/logo.svg" />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${unifraktur.variable} ${playfair.variable} ${lora.variable} antialiased bg-background text-foreground`}
+        className="antialiased bg-background text-foreground"
       >
         <ThemeProvider>{children}</ThemeProvider>
         <Toaster richColors position="top-right" />

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Sidebar } from "@/components/triage/sidebar";
 import { Header } from "@/components/triage/header";
 import { LiveQueue } from "@/components/triage/live-queue";
@@ -73,7 +72,7 @@ export default function Home() {
   }, [hospitals, hospitalId]);
 
   useEffect(() => {
-    if (hospitalId) loadAll();
+    if (hospitalId) queueMicrotask(loadAll);
   }, [hospitalId, loadAll]);
 
   // Auto refresh
@@ -163,37 +162,22 @@ export default function Home() {
   } as const;
 
   if (showLanding) {
-    return (
-      <AnimatePresence mode="wait">
-        <motion.div
-          key="landing"
-          initial={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 0.98, transition: { duration: 0.4 } }}
-        >
-          <HeroLanding onEnter={() => setShowLanding(false)} />
-        </motion.div>
-      </AnimatePresence>
-    );
+    return <HeroLanding onEnter={() => setShowLanding(false)} />;
   }
 
   return (
-    <div className="relative min-h-screen bg-background mesh-bg">
-      {/* Floating animated orbs */}
-      <div className="orb orb-1" />
-      <div className="orb orb-2" />
-      <div className="orb orb-3" />
-      <div className="orb orb-4" />
+    <div className="min-h-screen bg-background">
 
       <Sidebar queueCount={patients.length} surge={surge} />
 
       {/* Mobile top bar */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background/70 backdrop-blur-xl px-4 py-3 lg:hidden">
+      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-3 lg:hidden">
         <div className="flex items-center gap-2">
-          <div className="grid h-8 w-8 place-items-center rounded-lg bg-gradient-to-br from-[oklch(0.7_0.18_250)] via-[oklch(0.65_0.2_295)] to-[oklch(0.65_0.14_200)] text-white shadow-md">
+          <div className="grid h-8 w-8 place-items-center rounded-md bg-primary text-primary-foreground">
             <Stethoscope className="h-4 w-4" />
           </div>
           <span className="text-[15px] font-semibold tracking-tight">
-            Triage<span className="text-gradient">Setu</span>
+            TriageSetu
           </span>
         </div>
         <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
@@ -219,15 +203,7 @@ export default function Home() {
         />
 
         <main className="px-4 py-6 sm:px-6 lg:px-8">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={view}
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -6 }}
-              transition={{ duration: 0.2 }}
-              className="space-y-4"
-            >
+          <div className="space-y-4">
               {/* Queue metrics */}
               {view === "queue" && counts && (
                 <>
@@ -253,24 +229,17 @@ export default function Home() {
               {view === "staff" && <StaffRoster staff={staff} />}
               {view === "audit" && <AuditTrail entries={audit} />}
               {view === "settings" && <SettingsView onReset={onReset} />}
-            </motion.div>
-          </AnimatePresence>
+          </div>
         </main>
       </div>
 
-      {/* Floating back-to-home button */}
-      <motion.button
-        initial={{ opacity: 0, scale: 0.5 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ delay: 0.5 }}
-        whileHover={{ scale: 1.08, y: -2 }}
-        whileTap={{ scale: 0.95 }}
+      <button
         onClick={() => setShowLanding(true)}
-        className="fixed bottom-5 right-5 z-30 grid h-11 w-11 place-items-center rounded-full bg-gradient-to-br from-[oklch(0.72_0.2_280)] via-[oklch(0.65_0.2_295)] to-[oklch(0.7_0.18_250)] text-white shadow-[0_8px_28px_-4px_color-mix(in_oklch,var(--primary)_60%,transparent)]"
+        className="fixed bottom-5 right-5 z-30 grid h-10 w-10 place-items-center rounded-md border border-primary bg-primary text-primary-foreground"
         title="Back to home"
       >
         <Stethoscope className="h-5 w-5" />
-      </motion.button>
+      </button>
 
       <PatientDetail
         patient={selected}
@@ -306,7 +275,7 @@ function MobileNav({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-border p-4">
-        <div className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-br from-primary to-[color-mix(in_oklch,var(--primary)_60%,black)]">
+        <div className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground">
           <Stethoscope className="h-4 w-4 text-primary-foreground" />
         </div>
         <span className="font-semibold">Triage<span className="text-primary">Setu</span></span>

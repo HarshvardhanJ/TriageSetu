@@ -105,18 +105,15 @@ export function IntakeForm({ onCreated }: { onCreated: (p: Patient) => void }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
       {/* Form */}
-      <Card className="glass shadow-glass">
-        <CardHeader className="relative overflow-hidden pb-3">
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-[color-mix(in_oklch,var(--primary)_15%,transparent)] via-transparent to-[color-mix(in_oklch,var(--triage-violet)_12%,transparent)]" />
-          <div className="relative flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-[oklch(0.7_0.18_250)] to-[oklch(0.65_0.2_295)] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow-md">
+      <Card className="border border-border shadow-none">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
               <Sparkles className="h-3 w-3" /> Live preview scoring
             </span>
           </div>
-          <CardTitle className="relative mt-2 text-base">
-            <span className="text-gradient">Register a new arrival</span>
-          </CardTitle>
-          <CardDescription className="relative text-xs">
+          <CardTitle className="mt-2 text-base">Register a new arrival</CardTitle>
+          <CardDescription className="text-xs">
             Fields mirror the structured signal sent to the scoring engine. Preview updates as you type.
           </CardDescription>
         </CardHeader>
@@ -203,7 +200,7 @@ export function IntakeForm({ onCreated }: { onCreated: (p: Patient) => void }) {
             <p className="text-[11px] text-muted-foreground">
               Pseudonymous identifier will be auto-assigned on save.
             </p>
-            <Button onClick={submit} disabled={!preview || submitting} className="gap-1.5 bg-gradient-to-r from-[oklch(0.7_0.18_250)] to-[oklch(0.65_0.2_295)] text-white shadow-[0_4px_16px_-4px_color-mix(in_oklch,var(--primary)_60%,transparent)] hover:shadow-[0_6px_20px_-4px_color-mix(in_oklch,var(--primary)_70%,transparent)]">
+            <Button onClick={submit} disabled={!preview || submitting} className="gap-1.5">
               <UserPlus className="h-4 w-4" />
               {submitting ? "Scoring…" : "Score & add to queue"}
             </Button>
@@ -214,22 +211,12 @@ export function IntakeForm({ onCreated }: { onCreated: (p: Patient) => void }) {
       {/* Live preview */}
       <div className="space-y-4">
         <Card className={cn(
-          "relative overflow-hidden transition-all glass",
-          preview && preview.recommended_tier <= 2 && "shadow-glow-red border-[color-mix(in_oklch,var(--triage-red)_35%,transparent)]",
-          preview && preview.recommended_tier === 3 && "shadow-glow-amber border-[color-mix(in_oklch,var(--triage-amber)_35%,transparent)]",
-          preview && preview.recommended_tier >= 4 && "shadow-glow-green border-[color-mix(in_oklch,var(--triage-green)_30%,transparent)]",
-          !preview && "shadow-glass"
+          "border border-border",
+          preview && preview.recommended_tier <= 2 && "border-l-4 border-l-triage-red",
+          preview && preview.recommended_tier === 3 && "border-l-4 border-l-triage-amber",
+          preview && preview.recommended_tier >= 4 && "border-l-4 border-l-triage-green"
         )}>
-          {/* Decorative gradient blob */}
-          {preview && (
-            <div className={cn(
-              "pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full opacity-30 blur-3xl transition-opacity",
-              preview.recommended_tier <= 2 ? "bg-gradient-to-br from-[oklch(0.62_0.22_22)] to-[oklch(0.65_0.24_18)]"
-              : preview.recommended_tier === 3 ? "bg-gradient-to-br from-[oklch(0.75_0.18_65)] to-[oklch(0.78_0.19_70)]"
-              : "bg-gradient-to-br from-[oklch(0.68_0.16_155)] to-[oklch(0.72_0.17_160)]"
-            )} />
-          )}
-          <CardHeader className="relative pb-3">
+          <CardHeader className="pb-3">
             <CardDescription className="text-[10px] font-semibold uppercase tracking-wide">
               Live preview
             </CardDescription>
@@ -238,7 +225,7 @@ export function IntakeForm({ onCreated }: { onCreated: (p: Patient) => void }) {
               {preview ? <TierBadge tier={preview.recommended_tier} size="md" animated /> : <span className="text-xs text-muted-foreground">Awaiting input</span>}
             </div>
           </CardHeader>
-          <CardContent className="relative">
+          <CardContent>
             {preview ? (
               <div className="space-y-4">
                 <div>
@@ -253,11 +240,7 @@ export function IntakeForm({ onCreated }: { onCreated: (p: Patient) => void }) {
                       className="h-full rounded-full transition-all duration-500"
                       style={{
                         width: `${preview.confidence}%`,
-                        background: preview.confidence >= 80
-                          ? "linear-gradient(90deg, var(--triage-green), var(--triage-cyan))"
-                          : preview.confidence >= 62
-                          ? "linear-gradient(90deg, var(--triage-amber), var(--surge))"
-                          : "linear-gradient(90deg, var(--triage-red), var(--surge))",
+                        background: preview.confidence >= 80 ? "var(--triage-green)" : preview.confidence >= 62 ? "var(--triage-amber)" : "var(--triage-red)",
                       }}
                     />
                   </div>

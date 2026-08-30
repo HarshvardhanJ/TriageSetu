@@ -108,11 +108,11 @@ export const apiClient = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     }),
-  setStatus: (id: string, status: string) =>
+  setStatus: (id: string, status: string, clinicianId?: string, clinicianRole?: string) =>
     api(`patients/${id}/status`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify({ status, clinicianId, clinicianRole }),
     }),
   surge: (enabled: boolean, hospitalId?: string) =>
     api(`surge?enabled=${enabled}${hospitalId ? `&hospitalId=${hospitalId}` : ""}`, { method: "POST" }),
