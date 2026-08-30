@@ -278,6 +278,10 @@ Final recommended tier
 
 When uncertainty or disagreement is meaningful, the system favors escalation and clinician review rather than false precision.
 
+### Why fusion, not the model alone
+
+Tested on held-out data, not assumed. The model path alone under-triages (assigns a less urgent tier than the true one) 17.7% of tier 1-2 patients. The rule engine alone under-triages 14.0%. Fused, as the production code actually runs, the under-triage rate drops to 4.7%. This is the measured effect of the design in `score()`, not an assertion of it. The training data, the trained model, and the script that produces these numbers are in `/model`, reproducible with `python3 model/validate_fusion.py`.
+
 ---
 
 # Trust, privacy & accountability by design

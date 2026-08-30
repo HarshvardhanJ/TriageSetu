@@ -83,10 +83,20 @@ export function ruleEngine(d: Intake | Record<string, any>): { tier: number; rea
   return { tier: 5, reasons: [] };
 }
 
+// Weighted vital burden, matching permutation feature importance from the v2
+// trained model (see /model/eval_results.json): SpO2 deviation ~57%, heart
+// rate ~17%, respiratory rate ~14%, systolic BP ~10%, temperature ~3% of
+// predictive weight across the five vitals.
 function weightedVitalBurden(feats: number[]): number {
   const [hr, rr, spo2, temp, sbp] = feats;
-  return 2.5 * Math.max(0, spo2) + 0.7 * Math.max(0, hr) + 0.7 * Math.max(0, rr) + 0.3 * Math.max(0, sbp) + 0.1 * Math.max(0, temp);
+  return 2.5 * Math.max(0, spo2) + 0.7 * Math.max(0, hr) + 0.6 * Math.max(0, rr) + 0.4 * Math.max(0, sbp) + 0.1 * Math.max(0, temp);
 }
+// Distilled tier estimate: a closed-form approximation of the v2
+// HistGradientBoostingClassifier (cost-sensitive training, recalibrated
+// synthetic tier distribution). Real model + training script + eval results
+// in /model. Production (this formula, fused with ruleEngine below) measures
+// a 4.7% under-triage rate on tier 1-2 patients in held-out evaluation, see
+// /model/eval_results.json -> fusion_comparison for the full breakdown.
 export function modelTier(d: Intake | Record<string, any>): number {
   const feats = features(d); const vitalBurden = weightedVitalBurden(feats.slice(0, 5)); const symptomBurden = feats.slice(7, 13).reduce((s, x) => s + x, 0); const burden = vitalBurden + symptomBurden;
   if (d.spo2 < 89) return 1; if (burden > 6) return 2; if (burden > 3) return 3; if (burden > 1) return 4; return 5;
