@@ -238,8 +238,8 @@ erDiagram
 
 ```bash
 # Clone the repository
-git clone https://github.com/HarshvardhanJ/triagesetu.git
-cd triagesetu
+git clone https://github.com/HarshvardhanJ/TriageSetu.git
+cd TriageSetu
 
 # Install dependencies
 bun install
