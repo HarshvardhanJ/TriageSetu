@@ -329,47 +329,57 @@ For true persistence across cold starts, swap to a managed Postgres. Change `pro
 
 ```
 triagesetu/
-  prisma/
-    schema.prisma              7 models
-  public/
-    favicon.svg                TriageSetu stethoscope logo
-    logo.svg
-  db/
-    custom.db                   Seeded SQLite (20 patients, 2 hospitals, 65 beds, 16 staff)
-  src/
-    app/
-      api/                      17 REST route handlers
-      globals.css              Tailwind 4, newspaper theme, 3D utilities
-      layout.tsx               Fonts, ThemeProvider, metadata
-      page.tsx                 Hero to dashboard switcher
-    components/
-      ui/                      shadcn/ui components
-      triage/
-        hero-landing.tsx       3D newspaper broadsheet
-        sidebar.tsx            3D nav rail
-        header.tsx             Sticky glass header
-        live-queue.tsx         3D tilt patient card grid
-        patient-detail.tsx     Modal with sticky override footer
-        intake-form.tsx        Form with live preview scoring
-        audit-trail.tsx        Gradient timeline
-        analytics.tsx          Recharts dashboards
-        bed-board.tsx          Zone grids
-        staff-roster.tsx        On-duty cards
-        settings-view.tsx      Compliance and reset
-        metric-card.tsx        3D tilt stat cards
-        tier-badge.tsx          Glass tier pills
-        confidence-meter.tsx
-    lib/
-      triage.ts                Scoring engine (TypeScript port)
-      service.ts               DB operations, seeding, schema bootstrap
-      demo-data.ts             20 patients, 2 hospitals, beds, staff
-      api.ts                   Typed API client
-      store.ts                 Zustand store
-      db.ts                    Prisma client (Vercel-safe)
-  .env                         DATABASE_URL
-  vercel.json
-  next.config.ts
-  package.json
+├── prisma/
+│   └── schema.prisma              # Prisma schema — 7 database models
+│
+├── public/
+│   ├── favicon.svg                # TriageSetu stethoscope favicon
+│   └── logo.svg                   # Application logo
+│
+├── db/
+│   └── custom.db                  # Seeded SQLite database
+│                                  # 20 patients, 2 hospitals,
+│                                  # 65 beds, and 16 staff members
+│
+├── src/
+│   ├── app/
+│   │   ├── api/                   # 17 REST API route handlers
+│   │   ├── globals.css            # Tailwind CSS, newspaper theme & 3D utilities
+│   │   ├── layout.tsx             # Fonts, ThemeProvider & metadata
+│   │   └── page.tsx               # Landing page → dashboard switcher
+│   │
+│   ├── components/
+│   │   ├── ui/                    # Reusable shadcn/ui components
+│   │   │
+│   │   └── triage/                # Core TriageSetu interface
+│   │       ├── hero-landing.tsx   # 3D newspaper-style landing page
+│   │       ├── sidebar.tsx        # 3D navigation rail
+│   │       ├── header.tsx         # Sticky glassmorphism header
+│   │       ├── live-queue.tsx     # Live patient queue with 3D tilt cards
+│   │       ├── patient-detail.tsx # Patient details & sticky override actions
+│   │       ├── intake-form.tsx    # Patient intake with live triage scoring
+│   │       ├── audit-trail.tsx    # Gradient-based activity timeline
+│   │       ├── analytics.tsx      # Recharts analytics dashboard
+│   │       ├── bed-board.tsx      # Hospital bed & zone management
+│   │       ├── staff-roster.tsx   # On-duty staff management
+│   │       ├── settings-view.tsx  # Compliance settings & system reset
+│   │       ├── metric-card.tsx    # Animated 3D statistics cards
+│   │       ├── tier-badge.tsx     # Glass-style triage tier badges
+│   │       └── confidence-meter.tsx # Triage confidence visualization
+│   │
+│   └── lib/
+│       ├── triage.ts              # TypeScript triage scoring engine
+│       ├── service.ts             # Database operations & schema bootstrap
+│       ├── demo-data.ts           # Seed data for patients, beds & staff
+│       ├── api.ts                 # Typed REST API client
+│       ├── store.ts               # Zustand global state management
+│       └── db.ts                  # Prisma client (Vercel-safe)
+│
+├── .env                           # Environment variables
+├── next.config.ts                 # Next.js configuration
+├── vercel.json                    # Vercel deployment configuration
+├── package.json                   # Dependencies & project scripts
+└── README.md                      # Project documentation
 ```
 
 ---
