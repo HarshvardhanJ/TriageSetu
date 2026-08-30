@@ -383,14 +383,7 @@ triagesetu/
 ```
 
 ---
-## Instructions to Run Locally
-```
-1.git clone https://github.com/HarshvardhanJ/TriageSetu.git
-2.cd TriageSetu
-3.npm install
-4.npx prisma db push
-5.npm run dev
-```
+
 ## Try the Prototype
 
 1. **Live queue.** Browse the 20-patient queue. Observe tier badges, confidence meters, and deterioration flags.
