@@ -1,0 +1,96 @@
+// TriageSetu Prisma schema — full clinical triage prototype
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Hospital {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  type      String   // "urban_trauma" | "rural_ed" | "specialty"
+  bedsTotal Int      @default(40)
+  createdAt DateTime @default(now())
+
+  patients Patient[]
+  beds     Bed[]
+  staff    Staff[]
+}
+
+model Patient {
+  id            String   @id
+  hospitalId    String
+  hospital      Hospital @relation(fields: [hospitalId], references: [id])
+  displayName   String
+  data          String   // JSON of Intake
+  score         String   // JSON of Score
+  arrivedAt     DateTime @default(now())
+  waitMinutes   Int      @default(0)
+  clinicianTier Int?
+  clinicianId   String?
+  clinicianRole String?
+  status        String   @default("waiting") // waiting | treated | transferred | discharged
+  gender        String   @default("unknown")
+  // Soft privacy: pseudonymous by default, can be revealed only on break-glass
+  revealed      Boolean  @default(false)
+  notes         Note[]
+  audit         Audit[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([hospitalId, status])
+}
+
+model Audit {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  eventType String
+  patientId String?
+  patient   Patient? @relation(fields: [patientId], references: [id])
+  clinicianId   String?
+  clinicianRole String?
+  detail    String // JSON
+}
+
+model Bed {
+  id         String   @id @default(cuid())
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id])
+  code       String
+  zone       String // resus | major | minor | observation | paediatric
+  status     String @default("free") // free | occupied | cleaning | reserved
+  patientId  String?
+  updatedAt  DateTime @updatedAt
+
+  @@unique([hospitalId, code])
+}
+
+model Staff {
+  id         String   @id @default(cuid())
+  hospitalId String
+  hospital   Hospital @relation(fields: [hospitalId], references: [id])
+  name       String
+  role       String // triage_nurse | charge_nurse | ed_physician | resident | consultant
+  shift      String // day | night | evening
+  onDuty     Boolean  @default(true)
+  load       Int      @default(0) // # patients currently assigned
+}
+
+model Note {
+  id        Int      @id @default(autoincrement())
+  patientId String
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  author    String
+  role      String
+  text      String
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key   String @id
+  value String
+}
